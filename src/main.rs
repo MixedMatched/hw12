@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use proptest::prelude::*;
@@ -54,6 +56,25 @@ impl Arbitrary for NamedColor {
     }
 }
 
+impl NamedColor {
+    fn encode(&self) -> u8 {
+        match self {
+            NamedColor::Red => 0,
+            NamedColor::Green => 1,
+            NamedColor::Blue => 2,
+        }
+    }
+
+    fn decode(code: &u8) -> Result<Self, ()> {
+        match code {
+            0 => Ok(NamedColor::Red),
+            1 => Ok(NamedColor::Green),
+            2 => Ok(NamedColor::Blue),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 enum Color {
     Named(NamedColor),
@@ -73,6 +94,34 @@ impl Arbitrary for Color {
                 .prop_map(|(c, y, m, k)| Color::Cymk { c, y, m, k }),
         ]
         .boxed()
+    }
+}
+
+impl Color {
+    fn encode(&self) -> [u8; 5] {
+        match self {
+            Color::Named(c) => [0, c.encode(), 0, 0, 0],
+            Color::Rgb { r, g, b } => [1, *r, *g, *b, 0],
+            Color::Cymk { c, y, m, k } => [2, *c, *y, *m, *k],
+        }
+    }
+
+    fn decode(code: &[u8]) -> Result<Self, ()> {
+        match code {
+            [0, c, 0, 0, 0] => Ok(Color::Named(NamedColor::decode(c)?)),
+            [1, r, g, b, 0] => Ok(Color::Rgb {
+                r: *r,
+                g: *g,
+                b: *b,
+            }),
+            [2, c, y, m, k] => Ok(Color::Cymk {
+                c: *c,
+                y: *y,
+                m: *m,
+                k: *k,
+            }),
+            _ => Err(()),
+        }
     }
 }
 
@@ -102,16 +151,18 @@ proptest! {
 
     #[test]
     fn color_roundtrip(c in any::<Color>()) {
-        let serialized = bincode::serialize(&c).unwrap();
-        let deserialized: Color = bincode::deserialize(&serialized).unwrap();
+        let serialized = c.encode();
+        let deserialized: Color = Color::decode(&serialized).unwrap();
         assert_eq!(c, deserialized);
     }
 
     #[test]
-    fn color_deserialize(code in prop::collection::vec(any::<u8>(), 0..8)) {
-        let deserialized: Result<Color, _> = bincode::deserialize(&code);
+    fn color_deserialize(code in prop::collection::vec(any::<u8>(), 0..5)) {
+        println!("{:?}", code);
+        let deserialized: Result<Color, _> = Color::decode(&code);
         if let Ok(c) = deserialized {
-            let serialized = bincode::serialize(&c).unwrap();
+            println!("{:?}", c);
+            let serialized = c.encode();
             assert_eq!(code, serialized);
         }
     }

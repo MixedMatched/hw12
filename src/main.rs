@@ -1,3 +1,4 @@
+// because proptest emits the tests from a macro, clippy will complain about dead code
 #![allow(dead_code)]
 
 use std::collections::HashMap;
@@ -6,6 +7,31 @@ use proptest::prelude::*;
 use serde::{Deserialize, Serialize};
 
 fn main() {}
+
+fn quicksort<T: PartialOrd + Copy>(slice: &[T]) -> Vec<T> {
+    let v = slice.to_vec();
+    if v.len() <= 1 {
+        return v;
+    }
+
+    let pivot = v[0];
+    let mut left = Vec::new();
+    let mut right = Vec::new();
+
+    for i in v.iter().skip(1) {
+        if i < &pivot {
+            left.push(*i);
+        } else {
+            right.push(*i);
+        }
+    }
+
+    let mut sorted: Vec<T> = quicksort(&left);
+    sorted.push(pivot);
+    sorted.extend(quicksort(&right));
+
+    sorted
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 struct Student {
@@ -128,9 +154,8 @@ impl Color {
 proptest! {
     #[test]
     fn sort_size(unsorted in prop::collection::vec(any::<u8>(), 0..100)) {
-        let mut sorted = unsorted.clone();
-        sorted.sort();
-        assert!(unsorted.len() == sorted.len());
+        let sorted = quicksort(&unsorted);
+        assert_eq!(unsorted.len(), sorted.len());
     }
 
     #[test]
@@ -158,10 +183,8 @@ proptest! {
 
     #[test]
     fn color_deserialize(code in prop::collection::vec(any::<u8>(), 0..5)) {
-        println!("{:?}", code);
         let deserialized: Result<Color, _> = Color::decode(&code);
         if let Ok(c) = deserialized {
-            println!("{:?}", c);
             let serialized = c.encode();
             assert_eq!(code, serialized);
         }

@@ -155,6 +155,7 @@ proptest! {
     #[test]
     fn sort_size(unsorted in prop::collection::vec(any::<u8>(), 0..100)) {
         let sorted = quicksort(&unsorted);
+
         assert_eq!(unsorted.len(), sorted.len());
     }
 
@@ -171,6 +172,7 @@ proptest! {
     fn map_roundtrip(m in any::<StudentMap>()) {
         let serialized = serde_json::to_string(&m).unwrap();
         let deserialized: StudentMap = serde_json::from_str(&serialized).unwrap();
+
         assert_eq!(m, deserialized);
     }
 
@@ -178,14 +180,17 @@ proptest! {
     fn color_roundtrip(c in any::<Color>()) {
         let serialized = c.encode();
         let deserialized: Color = Color::decode(&serialized).unwrap();
+
         assert_eq!(c, deserialized);
     }
 
     #[test]
     fn color_deserialize(code in prop::collection::vec(any::<u8>(), 0..5)) {
         let deserialized: Result<Color, _> = Color::decode(&code);
+
         if let Ok(c) = deserialized {
             let serialized = c.encode();
+
             assert_eq!(code, serialized);
         }
     }
